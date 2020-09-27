@@ -502,6 +502,110 @@ class facescrub():
             plt.imshow(sample.reshape(self.size, self.size, self.channel), cmap='Greys_r')
         return fig
 
+class UTK():
+    def __init__(self, is_tanh = True, size = 64):
+        prefix = "./Datas/"
+        datapath = prefix + 'UTKFace/'
+        self.z_dim = 512
+        self.y_dim = 530
+        self.size= size
+        self.channel = 3
+        self.is_tanh = is_tanh
+
+        def read_images_labels():
+            # Get all the images and labels in directory/label/*.jpg
+            files_and_labels = []
+            for imgfile in os.listdir(datapath):
+                label = os.splitext(imgfile)[0].split('_')[2]
+
+                files_and_labels.append((datapath+imgfile, label))
+
+            filenames, labels = zip(*files_and_labels)
+            filenames = list(filenames)
+            labels = list(labels)
+
+            cls_dict ={}
+            label_set = set(labels)
+            for cls_id, cls_name in enumerate(label_set):
+                cls_dict[cls_name] = cls_id
+
+            labels = [cls_dict[label] for label in labels]
+
+            filenames = np.array(filenames, dtype=np.str)
+            labels = np.array(labels, dtype=np.uint16)
+
+            return filenames, labels
+
+        self.data, self.labels = read_images_labels()
+
+        self.num_examples = len(self.data)
+
+        self.pointer = 0
+
+        # np.random.seed(9)
+        self.shuffle_data()
+
+    def shuffle_data(self):
+        indices = np.random.permutation(self.num_examples)
+        self.data = self.data[indices]
+        self.labels = self.labels[indices]
+
+    def _random_flip_leftright(self, batch):
+        for i in range(len(batch)):
+            if bool(random.getrandbits(1)):
+                batch[i] = np.fliplr(batch[i])
+        return batch
+
+    def get_img(self, img_path):
+        img = scipy.misc.imread(img_path, mode = 'RGB').astype(np.float)
+        # crop by bounding box
+        img = scipy.misc.imresize(img, [self.size, self.size])
+        img = np.array(img) / 255.0
+        if self.is_tanh:
+            img = img * 2 - 1
+        return img
+
+    def __call__(self, batch_size, random_flip = True):
+        if self.pointer + batch_size > self.num_examples:
+            rest_num_examples = self.num_examples - self.pointer
+            path_rest_part = self.data[self.pointer:self.num_examples]
+            labels_rest_part = self.labels[self.pointer:self.num_examples]
+            self.shuffle_data()
+            self.pointer = batch_size - rest_num_examples
+            path_new_part = self.data[0:self.pointer]
+            labels_new_part = self.labels[0:self.pointer]
+            batch_path = np.concatenate((path_rest_part, path_new_part), axis=0)
+            batch_data = [self.get_img(img_path) for img_path in batch_path]
+            batch_data = np.array(batch_data)
+            if random_flip:
+                batch_data = self._random_flip_leftright(batch_data)
+            return batch_data, np.concatenate((labels_rest_part, labels_new_part), axis=0)
+        else:
+            start = self.pointer
+            self.pointer += batch_size
+            batch_path = self.data[start:self.pointer]
+            batch_data = [self.get_img(img_path) for img_path in batch_path]
+            batch_data = np.array(batch_data)
+            if random_flip:
+                batch_data = self._random_flip_leftright(batch_data)
+            return batch_data, self.labels[start:self.pointer]
+
+    def data2fig(self, samples, nr=4, nc=4):
+        if self.is_tanh:
+            samples = (samples + 1) / 2
+        fig = plt.figure(figsize=(30, 6))
+        gs = gridspec.GridSpec(nr, nc)
+        gs.update(wspace=0.05, hspace=0.05)
+
+        for i, sample in enumerate(samples):
+            ax = plt.subplot(gs[i])
+            plt.axis('off')
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            ax.set_aspect('equal')
+            plt.imshow(sample.reshape(self.size, self.size, self.channel), cmap='Greys_r')
+        return fig
+
 class two_moon():
     def __init__(self):
         self.X_dim = 2 # for mlp

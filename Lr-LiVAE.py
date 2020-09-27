@@ -586,7 +586,7 @@ if __name__ == '__main__':
                               You need to do nothing if your\'re running on a single-gpu environment or\
                               the gpu is assigned by a resource manager program.')
     parser.add_argument('--img_size', type=int, default=64, help='input image size')
-    parser.add_argument('--experiment_name', default='facescrub-64')
+    parser.add_argument('--experiment_name', default='UTK-64')
     parser.add_argument('--batch_size', type=int, default=96)
     parser.add_argument('--mode', default='training', choices=['training', 'generation', 'inpainting', 'exchanging'])
     args = parser.parse_args()
@@ -601,7 +601,7 @@ if __name__ == '__main__':
     if not os.path.exists(sample_folder):
         os.makedirs(sample_folder)
 
-    data = facescrub(is_tanh=True, size = img_size)
+    data = UTK(is_tanh=True, size = img_size)
     generator = GeneratorFace(size = data.size)
     identity = IdentityFace(data.y_dim, data.z_dim, size = data.size)
     attribute = AttributeFace(data.z_dim, size = data.size)
